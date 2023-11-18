@@ -3,24 +3,7 @@ import json
 import io
 from fedAvg import FedAvg
 from fedProx import FedProx
-
-WIDTH = 176
-HEIGHT = 208
-DEPTH = 1
-NUM_CLASSES = 4
-
-NUM_ROUNDS = 3
-
-TIMEOUT_SECONDS = 600
-EPSILON = 10 ** (-5)
-
-# similarity = ['single', 'multiple', 'averaged']
-SIMILARITY = "single"
-
-compile_info = {
-    "optimizer": "Adam",
-    "metrics": ["accuracy"],
-}
+from constants import *
 
 
 def get_encoded_compile_info():

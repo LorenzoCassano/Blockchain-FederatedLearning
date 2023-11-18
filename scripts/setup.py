@@ -77,7 +77,7 @@ def main():
             hospital_address, {"from": manager}
         )
         add_tx.wait(1)
-    print("[5]\tBlockchain opened and collaborators authorized to ues it")
+    print("[5]\tBlockchain opened and collaborators authorized to use it")
     print_line("*")
 
     for key, hospital in hospitals.items():

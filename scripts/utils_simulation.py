@@ -8,20 +8,7 @@ import pandas as pd
 import tensorflow as tf
 from classHospital import Hospital
 from sklearn.model_selection import train_test_split
-
-RANDOM_SEED = 42
-
-HOSPITALS_FILE_PATH = (
-    "./off_chain/hospitals.pkl"
-)
-DATASET_TRAIN_PATH = "./Database/train"
-DATASET_TEST_PATH = "./Database/test"
-DATASET_LIMIT = None
-
-LABELS = ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"]
-HOSPITAL_SPLIT = {"Alpha": 0.5, "Beta": 0.3, "Gamma": 0.2}
-VAL_SPLIT = 0.3
-PIN_BOOL = True
+from constants import *
 
 
 def set_reproducibility(seed=RANDOM_SEED):
@@ -251,3 +238,16 @@ def print_listed_weights(weights_listed):
 
 def print_line(c):
     print(c * 50, "\n")
+
+def device_out_of_battery(hospitals, n=1):
+    devices = []
+    hospitals_name = list(hospitals.keys())
+    for _ in range(n):
+        idx = random.randint(0, len(hospitals) - 1)
+        devices.append(hospitals_name[idx])
+    return devices
+
+def round_out_of_battery(rounds):
+    return random.randint(1, rounds - 1) # device cannot be out of memeory at first round
+
+

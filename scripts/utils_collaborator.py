@@ -2,9 +2,6 @@ import numpy as np
 import json
 import io
 
-NUM_EPOCHS = 5
-BATCH_SIZE = 64
-
 
 def decode_utf8(_tx):
     retrieved_utf8 = _tx.return_value

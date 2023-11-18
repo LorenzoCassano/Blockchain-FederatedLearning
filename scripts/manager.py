@@ -1,27 +1,18 @@
 import os
 import sys
-import argparse
 
 # Get the directory containing this script and add it to the sys.path
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import (
-    PIN_BOOL,
-    LABELS,
-    get_X_test,
-    get_y_test,
-    print_weights,
-    print_listed_weights,
-    print_line,
-    set_reproducibility,
-)
+from utils_simulation import get_X_test, get_y_test, print_line, set_reproducibility
 from utils_manager import *
 
 from brownie import FederatedLearning, network, accounts
 from deploy_FL import get_account
 import ipfshttpclient
 
+from constants import *
 from sklearn.metrics import classification_report
 import numpy as np
 import asyncio
@@ -47,13 +38,16 @@ FL_classification_report = []
 #                                       - On PRODUCTION env the Manager cannot afford sensitive (test) data from the collaborators
 """
 
-
+"""
+IMPORTANT:
+Parameter setting
+"""
 model_test = FedAvg(NUM_CLASSES) # creation of the global model always FedAvg, only useful to store weights
 model_test.compile(**compile_info)
 model_test.build((None, WIDTH, HEIGHT, DEPTH))
 X_test = get_X_test()
 y_test = get_y_test()
-model_used = "FedProx"
+model_used = "FedAvg" # model used by collaborators
 
 def retrive_information():
     # retrieving the parameters IPFS hashes loaded by the collaborators
@@ -63,17 +57,19 @@ def retrive_information():
         retrieved_weights_hash[hospital_address] = FL_contract.retrieve_weights(
             hospital_address, {"from": manager}
         )
-        print(retrieved_weights_hash[hospital_address])
     hospitals_weights = {}
 
     # retrieving the collaborators weights from IPFS
     for hospital_address in retrieved_weights_hash:
         weights_hash = retrieved_weights_hash[hospital_address].decode("utf-8")
-        start_time = time.time()
-        weights_encoded = IPFS_client.cat(weights_hash)
-        print("IPFS 'cat' time:", str(time.time() - start_time))
-        weights = weights_decoding(weights_encoded)
-        hospitals_weights[hospital_address] = weights
+        if weights_hash == "":
+            print(f"I did not receive anything by: {hospital_address}")
+        else:
+            start_time = time.time()
+            weights_encoded = IPFS_client.cat(weights_hash)
+            print("IPFS 'cat' time:", str(time.time() - start_time))
+            weights = weights_decoding(weights_encoded)
+            hospitals_weights[hospital_address] = weights # inserting weights only for whom send the weights
         # print_listed_weights(hospitals_weights[hospital_address])
 
     hospitals_number = len(hospitals_weights)
@@ -94,8 +90,8 @@ def test_information(aggregated_weights):
             y_predicted,  # labels=LABELS
         )
     )
-    print("y_predicted: ", y_predicted)
-    print("y_test: ", labels_y_test)
+    #print("y_predicted: ", y_predicted)
+    #print("y_test: ", labels_y_test)
     FL_evaluation.append(model_test.evaluate(X_test, y_test))
 
 def federated_learning():
@@ -115,11 +111,13 @@ def federated_learning():
             averaged_weights[i]
         )  # convert the list to a NumPy array
 
+    """
     for hospital_address in hospitals_addresses:
         print_weights(hospitals_weights[hospital_address])
     print_weights(averaged_weights)
-
+    
     # computing the similarity factors
+    
     factors = dict.fromkeys(hospitals_addresses, 0)
     for hospital_address in hospitals_addresses:
         if SIMILARITY == 'single':
@@ -135,7 +133,7 @@ def federated_learning():
         print(
             f"Hospital address: {hospital_address}\tSimilarity factor: {factors[hospital_address]}"
         )
-
+    
     # computing the AGGREGATION of the collaborators weights
     aggregated_weights = []
 
@@ -151,12 +149,12 @@ def federated_learning():
                     factors[hospital_address][i] * hospitals_weights[hospital_address][i]
                 )
         aggregated_weights.append(sum(layer_weights))
-
+    
     for i in range(len(aggregated_weights)):
         aggregated_weights[i] = np.array(
             aggregated_weights[i]
         )  # Convert the list to a NumPy array
-
+    """
     # show the aggregated weights structure
     #print_weights(aggregated_weights)
 
@@ -297,12 +295,12 @@ async def main():
 
         # await for the collaborators to send the weights
         coroutine_SW = contract_events.listen(
-            "EveryCollaboratorHasCalledOnlyOnce", timeout=TIMEOUT_SECONDS
+            "EveryCollaboratorHasCalledOnlyOnce", timeout=TIMEOUT_DEVICES
         )
         print("COROUTINE: waiting 'send_weights'\n", coroutine_SW)
         coroutine_result_SW = await coroutine_SW
-        assert_coroutine_result(coroutine_result_SW, "send_weights")
-        print("I waited send_weights")
+        #assert_coroutine_result(coroutine_result_SW, "send_weights")
+        print("Weights arrived")
         print_line("_")
 
         # reset the weights related events

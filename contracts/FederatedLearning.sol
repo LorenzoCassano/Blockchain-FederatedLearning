@@ -33,7 +33,6 @@ contract FederatedLearning is Ownable {
     event EveryCollaboratorHasCalledOnlyOnce(string functionName);
     event AggregatedWeightsReady();
 
-
     constructor() public {
         fl_state = FL_STATE.CLOSE;
     }

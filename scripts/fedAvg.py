@@ -1,19 +1,8 @@
 import tensorflow as tf
 from utils_simulation import set_reproducibility
-from tensorflow.keras.models import Model
 from tensorflow.keras.constraints import MaxNorm
 from tensorflow.keras.initializers import GlorotUniform, Zeros
-from tensorflow.keras.layers import (
-    Input,
-    Conv2D,
-    MaxPooling2D,
-    Flatten,
-    Dense,
-    Dropout,
-    Rescaling,
-)
-import numpy as np
-import random
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout, Rescaling
 
 
 class FedAvg(tf.keras.Model):

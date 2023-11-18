@@ -1,35 +1,29 @@
 import os
 import sys
-
 from numpy import require
 
 # Get the directory containing this script and add it to the sys.path
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-
-from utils_simulation import (
-    RANDOM_SEED,
-    PIN_BOOL,
-    get_hospitals,
-    print_line,
-    set_reproducibility,
-)
+from utils_simulation import get_hospitals, print_line, set_reproducibility, round_out_of_battery, device_out_of_battery
 from utils_collaborator import *
-
 from brownie import FederatedLearning
 import ipfshttpclient
-
 from tensorflow.keras.models import model_from_json
 import asyncio
 import json
-import time
+from constants import NUM_ROUNDS
 
 from fedAvg import FedAvg
 from fedProx import FedProx
-from utils_manager import DEPTH,WIDTH,HEIGHT
-import tensorflow as tf
+
+from constants import *
 import random
+import time
+
+
+
 set_reproducibility(RANDOM_SEED)
 
 # retrieve the hospitals information
@@ -45,8 +39,10 @@ contract_events = FL_contract.events
 # storing the hospitals performance results through the Federated Learning rounds
 hospitals_evaluation = {hospital_name: [] for hospital_name in hospitals}
 
+ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
+DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=1)
 
-
+print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of memory at round {ROUND_BATTERY + 1}")
 
 def closeState_alert(event):
     print("The FL Blockchain has been CLOSED\n")
@@ -90,9 +86,13 @@ def start_event():
 
 
 # operations to do at every FL round
-def round_loop():
+def round_loop(round):
     for hospital_name in hospitals:
-        fitting_model_and_loading_weights(hospital_name)
+        if round >= ROUND_BATTERY and hospital_name in DEVICES_OUT_OF_BATTERY:
+            print(f"Device {hospital_name} is out of battery")
+        else:
+            print(f"Device {hospital_name} is training ...")
+            fitting_model_and_loading_weights(hospital_name)
 
 
 # triggered after the 'aggregatedWeightsReady' event from the Blockchain
@@ -224,17 +224,20 @@ async def main():
         FedProx.SERVER_WEIGHTS = weights
 
     # start of the Federated Learning loop that will be ended by the CLOSE event
+    # set only for out of memory: debug
+    round = 0
     while True:
-        print("Start training...")
-        round_loop()
+        print("Start round loop ...")
+        round_loop(round)
         # await for the Manager to send the aggregated weights
         coroutine_AW = contract_events.listen("AggregatedWeightsReady")
         print("COROUTINE: waiting 'send_aggreagted_weights'...\n", coroutine_AW)
         await coroutine_AW
-        print("I waited 'send_aggreagted_weights'")
+        print("Aggregated weights arrived")
         print_line("_")
         # continue after reception
         aggregatedWeightsReady_event()
+        round += 1
 
 
 asyncio.run(main())
