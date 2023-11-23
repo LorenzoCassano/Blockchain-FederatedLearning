@@ -5,27 +5,48 @@ import sys
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import createHospitals, set_hospitals, get_hospitals, print_line
+from utils_simulation import createHospitals, set_hospitals, get_hospitals, print_line, generate_random_split,print_hospital_split
 
 from brownie import FederatedLearning, accounts
 import deploy_FL
+from constants import *
+import json
 
 print("Private Key: ",os.getenv(("PRIVATE_KEY")))
 # with this CLI argument choose to retrieve or to create the hospitals information
-isCreated = False
+
+# CMD ARGUMENTS
+# default values
+isCreated = True
 if "main" in sys.argv:
     isCreated = False
 
 
-def main():
+def main(dataset="",number_device=3):
     """
     1)  Hospitals creation
     """
+    if "brain_tumor" in sys.argv:
+        train_path = DATASET_TRAIN_PATH_TUM
+        test_path = DATASET_TEST_PATH_TUM
+    else:
+        train_path = DATASET_TRAIN_PATH_ALZ
+        test_path = DATASET_TEST_PATH_ALZ
     hospitals = None
+
     if isCreated:
+        print("Loading dataset from pkl files")
         hospitals = get_hospitals()
     else:
-        hospitals = createHospitals()
+        n = int(number_device)
+        hospital_split = generate_random_split(n)
+        print(f"Creating dataset from {train_path} with {n} devices")
+        print_hospital_split(hospital_split)
+        # saving the file
+
+        with open(HOSPITAL_SPLIT_FILE, 'w') as json_file:
+            json.dump(hospital_split, json_file)
+        hospitals = createHospitals(train_path,test_path,hospital_split)
     print("[1]\tHospitals have been created")
     print_line("*")
 
