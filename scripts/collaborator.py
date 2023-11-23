@@ -42,7 +42,7 @@ hospitals_evaluation = {hospital_name: [] for hospital_name in hospitals}
 ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
 DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=1)
 
-print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of memory at round {ROUND_BATTERY + 1}")
+print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of battery at round {ROUND_BATTERY + 1}")
 
 def closeState_alert(event):
     print("The FL Blockchain has been CLOSED\n")

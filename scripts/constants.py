@@ -5,10 +5,15 @@ DEPTH = 1
 
 # dataset constants
 NUM_CLASSES = 4
-LABELS = ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"]
-HOSPITAL_SPLIT = {"Alpha": 0.5, "Beta": 0.3, "Gamma": 0.2}
+HOSPITAL_SPLIT_FILE = 'hospital_split.json'
 VAL_SPLIT = 0.3
 PIN_BOOL = True
+
+# Alzheimer constants
+LABELS_ALZ = ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"]
+
+# Tumor constants
+LABELS_TUMOR = ["glioma", "meningioma", "notumor", "pituitary"]
 
 # Train constants
 NUM_ROUNDS = 3
@@ -18,7 +23,7 @@ BATCH_SIZE = 64
 TIMEOUT_SECONDS = 600
 EPSILON = 10 ** (-5)
 
-TIMEOUT_DEVICES = 180
+TIMEOUT_DEVICES = 300 # pay attention to this
 
 # similarity = ['single', 'multiple', 'averaged']
 SIMILARITY = "single"
@@ -34,8 +39,12 @@ RANDOM_SEED = 42
 HOSPITALS_FILE_PATH = (
     "./off_chain/hospitals.pkl"
 )
-DATASET_TRAIN_PATH = "./Database/train"
-DATASET_TEST_PATH = "./Database/test"
+# Alzheimer dataset
+DATASET_TRAIN_PATH_ALZ = "./Database/train"
+DATASET_TEST_PATH_ALZ = "./Database/test"
 DATASET_LIMIT = None
 
+# Tumor dataset
+DATASET_TRAIN_PATH_TUM = "./Brain_Tumor/train"
+DATASET_TEST_PATH_TUM = "./Brain_Tumor/test"
 

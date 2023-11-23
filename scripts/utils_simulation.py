@@ -8,8 +8,28 @@ import pandas as pd
 import tensorflow as tf
 from classHospital import Hospital
 from sklearn.model_selection import train_test_split
+import json
 from constants import *
 
+def print_hospital_split(hospital_split):
+    for key, value in hospital_split.items():
+        print(f"Hospital {key} has {value:.2%} elements of the train dataset")
+
+
+def generate_random_split(n, seed=RANDOM_SEED):
+    # Generate n random numbers between 0 and 1
+    random.seed(RANDOM_SEED)
+    random_numbers = [random.uniform(0.1, 1) for _ in range(n)]
+
+    # Normalize the numbers so their sum is equal to 1
+    total = sum(random_numbers)
+    normalized_numbers = [num / total for num in random_numbers]
+
+    # Create the dictionary with keys as alpha, beta, gamma, etc.
+    keys = [chr(ord('A') + i) for i in range(n)]
+    result = dict(zip(keys, normalized_numbers))
+    assert np.sum(normalized_numbers) == 1 # checking if all the elements are included
+    return result
 
 def set_reproducibility(seed=RANDOM_SEED):
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -49,12 +69,12 @@ def create_dataset(img_folder):
     return img_data_array, class_name
 
 
-def createHospitals():
+def createHospitals(train_path, test_path, hospital_split):
     hospitals = {}
 
     # extract the image array and class name
-    img_data, class_name = create_dataset(DATASET_TRAIN_PATH)
-    img_data_test, class_name_test = create_dataset(DATASET_TEST_PATH)
+    img_data, class_name = create_dataset(train_path)
+    img_data_test, class_name_test = create_dataset(test_path)
 
     """
     target_dict = {
@@ -64,7 +84,9 @@ def createHospitals():
         "ModerateDemented": 3,
     }
     """
-    target_dict = {label: index for index, label in enumerate(LABELS)}
+    labels = LABELS_ALZ if train_path == DATASET_TRAIN_PATH_ALZ else LABELS_TUMOR
+
+    target_dict = {label: index for index, label in enumerate(labels)}
 
     target_val = [target_dict[class_name[i]] for i in range(len(class_name))]
 
@@ -78,8 +100,12 @@ def createHospitals():
 
     rows = len(X)
     values_list = []
-    for hospital_name in HOSPITAL_SPLIT:
-        values_list += [hospital_name] * int(rows * HOSPITAL_SPLIT[hospital_name])
+    for hospital_name in hospital_split:
+        values_list += [hospital_name] * int(rows * hospital_split[hospital_name])
+
+    if len(values_list) < len(X): # case useful for approximation
+        difference = len(X) - len(values_list)
+        values_list += [list(hospital_split.keys())[-1]] * difference # adding last element
 
     indices = np.arange(X.shape[0])
     np.random.shuffle(indices)
@@ -89,12 +115,13 @@ def createHospitals():
     df = pd.DataFrame({"X": list(X), "y": list(y)})
     if df.shape[0] != len(values_list):
         values_list.append("Gamma")
+
     df["hospital"] = values_list
     # df['hospital'] = df['hospital'].map(hospitals)
 
-    dataset = dict.fromkeys(list(HOSPITAL_SPLIT.keys()))
+    dataset = dict.fromkeys(list(hospital_split.keys()))
 
-    for hospital_name in HOSPITAL_SPLIT:
+    for hospital_name in hospital_split:
         X_h = df[df["hospital"] == hospital_name]["X"].to_numpy()
         y_h = df[df["hospital"] == hospital_name]["y"].to_numpy()
 
@@ -111,11 +138,11 @@ def createHospitals():
         ) = train_test_split(X_test, y_test, test_size=VAL_SPLIT, random_state=RANDOM_SEED)
 
         dataset[hospital_name]["X_train"] = np.expand_dims(np.array(X_h, np.float32), axis=-1)
-        dataset[hospital_name]["y_train"] = tf.one_hot(y_h, depth=len(LABELS))
+        dataset[hospital_name]["y_train"] = tf.one_hot(y_h, depth=len(labels))
         dataset[hospital_name]["X_test"] = np.expand_dims(np.array(X_test, np.float32), axis=-1)
-        dataset[hospital_name]["y_test"] = tf.one_hot(y_test, depth=len(LABELS))
+        dataset[hospital_name]["y_test"] = tf.one_hot(y_test, depth=len(labels))
         dataset[hospital_name]["X_val"] = np.expand_dims(np.array(X_val, np.float32), axis=-1)
-        dataset[hospital_name]["y_val"] = tf.one_hot(y_val, depth=len(LABELS))
+        dataset[hospital_name]["y_val"] = tf.one_hot(y_val, depth=len(labels))
 
         hospitals[hospital_name] = Hospital(hospital_name, dataset[hospital_name])
 
@@ -139,16 +166,20 @@ def set_hospitals(hospitals):
     with open(HOSPITALS_FILE_PATH, "wb") as file:
         file.write(serialized_hospitals)
 
+def get_hospital_split():
+    with open(HOSPITAL_SPLIT_FILE, 'r') as json_file:
+        hospital_split = json.load(json_file)
+    return hospital_split
 
 def get_X_test():
     hospitals = get_hospitals()
-
+    hospital_split = get_hospital_split()
     X_test = None
     try:
         X_test = np.concatenate(
             [
                 hospitals[hospital_name].dataset["X_test"]
-                for hospital_name in HOSPITAL_SPLIT
+                for hospital_name in hospital_split
             ],
             axis=0,
         )
@@ -174,12 +205,13 @@ def get_X_test():
 
 def get_y_test():
     hospitals = get_hospitals()
+    hospital_split = get_hospital_split()
     y_test = None
     try:
         y_test = np.concatenate(
             [
                 hospitals[hospital_name].dataset["y_test"]
-                for hospital_name in HOSPITAL_SPLIT
+                for hospital_name in hospital_split
             ],
             axis=0,
         )
