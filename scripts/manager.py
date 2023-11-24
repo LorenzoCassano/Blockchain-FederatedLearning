@@ -47,7 +47,11 @@ model_test.compile(**compile_info)
 model_test.build((None, WIDTH, HEIGHT, DEPTH))
 X_test = get_X_test()
 y_test = get_y_test()
+
 model_used = "FedAvg" # model used by collaborators
+
+if "FedProx" in sys.argv:
+    model_used = "FedProx"
 
 def retrive_information():
     # retrieving the parameters IPFS hashes loaded by the collaborators
@@ -291,7 +295,7 @@ async def main():
 
 
     for round in range(NUM_ROUNDS):
-        print(f"FL ROUND {round}...")
+        print(f"FL ROUND {round+1}...")
 
         # await for the collaborators to send the weights
         coroutine_SW = contract_events.listen(

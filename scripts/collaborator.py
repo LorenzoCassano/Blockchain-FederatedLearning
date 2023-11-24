@@ -39,10 +39,15 @@ contract_events = FL_contract.events
 # storing the hospitals performance results through the Federated Learning rounds
 hospitals_evaluation = {hospital_name: [] for hospital_name in hospitals}
 
-ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
-DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=1)
+ROUND_BATTERY = 100 # setting an higher time to avoid out of battery
+DEVICES_OUT_OF_BATTERY = []
 
-print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of battery at round {ROUND_BATTERY + 1}")
+if "out" in sys.argv:
+    ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
+    DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=1)
+    print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of battery at round {ROUND_BATTERY + 1}")
+else:
+    print("No devices out of battery")
 
 def closeState_alert(event):
     print("The FL Blockchain has been CLOSED\n")
