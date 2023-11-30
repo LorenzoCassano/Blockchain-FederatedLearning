@@ -9,9 +9,8 @@ class FedAvg(tf.keras.Model):
 
     def __init__(self, num_classes=4, random_seed=42):
         super(FedAvg, self).__init__()
-        set_reproducibility(random_seed)
 
-
+        set_reproducibility()
         # Layers
         self.glorot_initializer = GlorotUniform(seed=random_seed)
         self.rescale_layer = Rescaling(1.0 / 255)

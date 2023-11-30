@@ -88,12 +88,12 @@ def test_information(aggregated_weights):
     results = model_test.predict(X_test)
     y_predicted = list(map(np.argmax, results))
     labels_y_test = np.argmax(y_test, axis=1)
-    FL_classification_report.append(
-        classification_report(
-            labels_y_test,
-            y_predicted,  # labels=LABELS
-        )
+    classification_rep = classification_report(
+        labels_y_test,
+        y_predicted,  # labels=LABELS
     )
+    FL_classification_report.append(classification_rep)
+
     #print("y_predicted: ", y_predicted)
     #print("y_test: ", labels_y_test)
     FL_evaluation.append(model_test.evaluate(X_test, y_test))
@@ -323,11 +323,14 @@ async def main():
     network.disconnect()
 
     print("RESULTS - Overall Performance Evaluation through Federated Learning...")
+
     for round in range(NUM_ROUNDS):
         print(
             f"Round {round+1}:\t Loss: {FL_evaluation[round][0]:.3f} - Accuracy: {FL_evaluation[round][1]:.3f}"
         )
+
         print(FL_classification_report[round] + "\n")
+
 
     sys.exit(0)
 

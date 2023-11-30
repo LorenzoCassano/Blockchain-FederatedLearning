@@ -6,37 +6,39 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
 from utils_simulation import createHospitals, set_hospitals, get_hospitals, print_line, generate_random_split,print_hospital_split
-
+from classHospital import Hospital
 from brownie import FederatedLearning, accounts
 import deploy_FL
 from constants import *
 import json
 
 print("Private Key: ",os.getenv(("PRIVATE_KEY")))
-# with this CLI argument choose to retrieve or to create the hospitals information
 
-# CMD ARGUMENTS
-# default values
 isCreated = True
 if "main" in sys.argv:
     isCreated = False
+
 
 
 def main(dataset="",number_device=3):
     """
     1)  Hospitals creation
     """
+
     if "brain_tumor" in sys.argv:
         train_path = DATASET_TRAIN_PATH_TUM
         test_path = DATASET_TEST_PATH_TUM
+        dataset_name = BRAIN_TUMOR
     else:
         train_path = DATASET_TRAIN_PATH_ALZ
         test_path = DATASET_TEST_PATH_ALZ
+        dataset_name = ALZHEIMER
     hospitals = None
 
     if isCreated:
         print("Loading dataset from pkl files")
         hospitals = get_hospitals()
+        print("pkl loaded", hospitals['A'].dataset_name)
     else:
         n = int(number_device)
         hospital_split = generate_random_split(n)
@@ -46,7 +48,18 @@ def main(dataset="",number_device=3):
 
         with open(HOSPITAL_SPLIT_FILE, 'w') as json_file:
             json.dump(hospital_split, json_file)
-        hospitals = createHospitals(train_path,test_path,hospital_split)
+        hospitals = createHospitals(train_path,test_path,hospital_split,dataset_name)
+
+
+    for el in hospitals.keys():
+        print(f"Hospital {el}, has X_train shape  ", hospitals[el].dataset["X_train"].shape)
+        print(f"Hospital {el}, has y_trai shape ", hospitals[el].dataset["y_train"].shape)
+        print(f"Hospital {el}, has X_val shape ", hospitals[el].dataset["X_val"].shape)
+        print(f"Hospital {el}, has y_val shape ", hospitals[el].dataset["y_val"].shape)
+        print(f"Hospital {el}, has X_test shape ", hospitals[el].dataset["X_test"].shape)
+        print(f"Hospital {el}, has y_test shape ", hospitals[el].dataset["y_test"].shape)
+        print("--------------------------------------------")
+
     print("[1]\tHospitals have been created")
     print_line("*")
 

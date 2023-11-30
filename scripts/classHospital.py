@@ -1,5 +1,6 @@
 class Hospital:
-    def __init__(self, name, dataset):
+    def __init__(self, name, dataset,dataset_name):
+        self.dataset_name = dataset_name
         self._name = name
         self._dataset = dataset
         self._address = None

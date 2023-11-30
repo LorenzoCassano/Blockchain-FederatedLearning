@@ -9,6 +9,7 @@ sys.path.insert(0, dir_path)
 from utils_simulation import get_hospitals, print_line, set_reproducibility, round_out_of_battery, device_out_of_battery
 from utils_collaborator import *
 from brownie import FederatedLearning
+from classHospital import Hospital
 import ipfshttpclient
 from tensorflow.keras.models import model_from_json
 import asyncio
@@ -22,13 +23,10 @@ from constants import *
 import random
 import time
 
-
-
-set_reproducibility(RANDOM_SEED)
+set_reproducibility()
 
 # retrieve the hospitals information
 hospitals = get_hospitals()
-
 # connect to IPFS and Blockchain
 IPFS_client = ipfshttpclient.connect()
 FL_contract = FederatedLearning[-1]
@@ -39,15 +37,19 @@ contract_events = FL_contract.events
 # storing the hospitals performance results through the Federated Learning rounds
 hospitals_evaluation = {hospital_name: [] for hospital_name in hospitals}
 
-ROUND_BATTERY = 100 # setting an higher time to avoid out of battery
+ROUND_BATTERY = 100  # setting an higher time to avoid out of battery
 DEVICES_OUT_OF_BATTERY = []
-
+file_name = ""
 if "out" in sys.argv:
     ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
     DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=1)
     print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of battery at round {ROUND_BATTERY + 1}")
+    name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{DEVICES_OUT_OF_BATTERY}"
 else:
     print("No devices out of battery")
+    name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{[]}"
+
+
 
 def closeState_alert(event):
     print("The FL Blockchain has been CLOSED\n")
@@ -63,7 +65,6 @@ def closeState_alert(event):
 # triggered after the START event from the Blockchain
 def start_event():
     for hospital_name in hospitals:
-
         # retrieving of the model given by the Manager
         retrieve_model_tx = FL_contract.retrieve_model(
             {"from": hospitals[hospital_name].address}
@@ -73,7 +74,7 @@ def start_event():
         decoded_model = decode_utf8(retrieve_model_tx)
         print("decoded_model: ", decoded_model)
         model = model_from_json(decoded_model, custom_objects=custom_objects)
-        print("Model ",model)
+        print("Model ", model)
         hospitals[hospital_name].model = model
 
         # retrieving of the compile information goven by the Manager
@@ -91,19 +92,28 @@ def start_event():
 
 
 # operations to do at every FL round
-def round_loop(round):
+def round_loop(round, fed_dict, file_name):
     for hospital_name in hospitals:
+        if hospital_name not in fed_dict:
+            fed_dict[hospital_name] = {}
         if round >= ROUND_BATTERY and hospital_name in DEVICES_OUT_OF_BATTERY:
             print(f"Device {hospital_name} is out of battery")
+            fed_dict[hospital_name][round] = "out_of_battery"
         else:
             print(f"Device {hospital_name} is training ...")
-            fitting_model_and_loading_weights(hospital_name)
+            fed_dict = fitting_model_and_loading_weights(hospital_name, round, fed_dict)
+    dir_path = file_name.split('_')[0]
+    path = './results/' + dir_path +'/'+ file_name + '.json'
+    with open(path, 'w') as json_file:
+        json.dump(fed_dict, json_file)
+    return fed_dict
 
 
 # triggered after the 'aggregatedWeightsReady' event from the Blockchain
 def aggregatedWeightsReady_event():
     for hospital_name in hospitals:
         retrieving_aggreagted_weights(hospital_name)
+
 
 def find_data(_hospital_name):
     X_train = hospitals[_hospital_name].dataset["X_train"]
@@ -114,16 +124,15 @@ def find_data(_hospital_name):
     y_test = hospitals[_hospital_name].dataset["y_test"]
     return X_train, y_train, X_val, y_val, X_test, y_test
 
-def fitting_model_and_loading_weights(_hospital_name):
 
+def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
     """fitting the model"""
 
     X_train, y_train, X_val, y_val, X_test, y_test = find_data(_hospital_name)
-
     # Random epoch for FedProx
     epochs = random.randint(1, NUM_EPOCHS) if isinstance(hospitals[_hospital_name].model, FedProx) else NUM_EPOCHS
     print(f"Number of epoch for {_hospital_name} is {epochs}")
-    BATCH_SIZE = 32  # Define your batch size
+    fed_dict[_hospital_name][round] = {}
     for epoch in range(epochs):
         # Training phase
         for i in range(0, len(X_train), BATCH_SIZE):
@@ -142,7 +151,7 @@ def fitting_model_and_loading_weights(_hospital_name):
         mean_train_loss = np.mean(train_loss)
         mean_val_loss = np.mean(val_loss)
         print(f"Epoch {epoch + 1}, Training Loss={mean_train_loss:.4f}, Validation Loss={mean_val_loss:.4f}")
-
+        fed_dict[_hospital_name][round][epoch] = [str(mean_train_loss), str(mean_val_loss)]
     hospitals_evaluation[_hospital_name].append(
         hospitals[_hospital_name].model.evaluate(X_test, y_test)
     )
@@ -168,6 +177,7 @@ def fitting_model_and_loading_weights(_hospital_name):
         {"from": hospitals[_hospital_name].address},
     )
     send_weights_tx.wait(1)
+    return fed_dict
 
 
 def retrieving_aggreagted_weights(_hospital_name):
@@ -218,7 +228,7 @@ async def main():
     print_line("_")
 
     # Initialiazation weights
-    hospital_name = list(hospitals.keys())[0] # take the first elements to check the model used
+    hospital_name = list(hospitals.keys())[0]  # take the first elements to check the model used
     if isinstance(hospitals[hospital_name].model, FedProx):
         print("FedProx model weights initialization...")
         global_model = FedAvg(num_classes=4)
@@ -227,13 +237,23 @@ async def main():
         weights = global_model.trainable_weights
         assert len(weights) != 0
         FedProx.SERVER_WEIGHTS = weights
+        file = 'FedProx_' + name
+    else:
+        file = 'FedAvg_' + name
+
+    dataset = hospitals[hospital_name].dataset_name
+    file_name = dataset + '_' + file
+    print('new file ',file_name)
+
 
     # start of the Federated Learning loop that will be ended by the CLOSE event
     # set only for out of memory: debug
     round = 0
+    fed_dict = {}
     while True:
         print("Start round loop ...")
-        round_loop(round)
+        fed_dict = round_loop(round, fed_dict, file_name)
+        print("fed_dict: ", fed_dict)
         # await for the Manager to send the aggregated weights
         coroutine_AW = contract_events.listen("AggregatedWeightsReady")
         print("COROUTINE: waiting 'send_aggreagted_weights'...\n", coroutine_AW)
