@@ -5,7 +5,7 @@ import sys
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import get_X_test, get_y_test, print_line, set_reproducibility
+from utils_simulation import get_X_test, get_y_test, print_line, set_reproducibility, get_hospitals
 from utils_manager import *
 
 from brownie import FederatedLearning, network, accounts
@@ -17,6 +17,7 @@ from sklearn.metrics import classification_report
 import numpy as np
 import asyncio
 import time
+import pickle
 
 
 set_reproducibility()
@@ -47,11 +48,22 @@ model_test.compile(**compile_info)
 model_test.build((None, WIDTH, HEIGHT, DEPTH))
 X_test = get_X_test()
 y_test = get_y_test()
+hospitals = get_hospitals()
+with open('devices_out_of_battery.pkl', 'rb') as file:
+    loaded_list = pickle.load(file)
+
+
 
 model_used = "FedAvg" # model used by collaborators
-
 if "FedProx" in sys.argv:
     model_used = "FedProx"
+    file_name = f"FedProx_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
+else:
+    file_name = f"FedAvg_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
+
+hospital_name = list(hospitals.keys())[0]
+dataset = hospitals[hospital_name].dataset_name
+file_name = f"{dataset}_{file_name}"
 
 def retrive_information():
     # retrieving the parameters IPFS hashes loaded by the collaborators
@@ -323,14 +335,18 @@ async def main():
     network.disconnect()
 
     print("RESULTS - Overall Performance Evaluation through Federated Learning...")
-
+    acc = {}
     for round in range(NUM_ROUNDS):
+        acc[round] = FL_evaluation[round][1]
         print(
             f"Round {round+1}:\t Loss: {FL_evaluation[round][0]:.3f} - Accuracy: {FL_evaluation[round][1]:.3f}"
         )
 
         print(FL_classification_report[round] + "\n")
 
+    path = f"./results/{dataset}/{file_name}.json"
+    with open(path, 'w') as json_file:
+        json.dump(acc, json_file)
 
     sys.exit(0)
 

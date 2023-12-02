@@ -14,6 +14,7 @@ import ipfshttpclient
 from tensorflow.keras.models import model_from_json
 import asyncio
 import json
+import pickle
 from constants import NUM_ROUNDS
 
 from fedAvg import FedAvg
@@ -48,6 +49,10 @@ if "out" in sys.argv:
 else:
     print("No devices out of battery")
     name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{[]}"
+
+with open('devices_out_of_battery.pkl', 'wb') as file:
+    # Use pickle.dump to save the list to the file
+    pickle.dump(DEVICES_OUT_OF_BATTERY, file)
 
 
 
