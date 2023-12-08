@@ -104,6 +104,9 @@ It is possible to use the parameter _FedProx_ to specify the using of Federated 
 
 `brownie run .\scripts\manager.py FedProx --network fl-local`
 
+## Experiments Analysis
+In the repo, the notebook experiments_analysis contains all the analysis/plot of the different simulations.
+
 ## Authors
 <ul>
 <li>Lorenzo Cassano</li>
