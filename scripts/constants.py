@@ -2,6 +2,7 @@
 WIDTH = 176
 HEIGHT = 208
 DEPTH = 1
+MU = 0.01 # Hyperparameter
 
 #Dataset name
 BRAIN_TUMOR = "Brain_Tumor"
@@ -25,10 +26,10 @@ NUM_ROUNDS = 2
 NUM_EPOCHS = 1
 BATCH_SIZE = 32
 
-TIMEOUT_SECONDS = 800
+TIMEOUT_SECONDS = 3600
 EPSILON = 10 ** (-5)
 
-TIMEOUT_DEVICES = 800 # pay attention to this
+TIMEOUT_DEVICES = 3600 # pay attention to this
 
 # similarity = ['single', 'multiple', 'averaged']
 SIMILARITY = "single"
@@ -53,3 +54,6 @@ DATASET_LIMIT = None
 DATASET_TRAIN_PATH_TUM = "./Brain_Tumor/train"
 DATASET_TEST_PATH_TUM = "./Brain_Tumor/test"
 
+# setup
+NUM_DEVICES = 5
+NUM_DEVICES_OUT_BATTERY = 1

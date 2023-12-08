@@ -57,7 +57,7 @@ with open('devices_out_of_battery.pkl', 'rb') as file:
 model_used = "FedAvg" # model used by collaborators
 if "FedProx" in sys.argv:
     model_used = "FedProx"
-    file_name = f"FedProx_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
+    file_name = f"FedProx{MU}_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
 else:
     file_name = f"FedAvg_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
 

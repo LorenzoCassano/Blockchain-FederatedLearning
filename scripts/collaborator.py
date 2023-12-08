@@ -30,6 +30,7 @@ set_reproducibility()
 hospitals = get_hospitals()
 # connect to IPFS and Blockchain
 IPFS_client = ipfshttpclient.connect()
+
 FL_contract = FederatedLearning[-1]
 
 # manage contract events
@@ -43,7 +44,7 @@ DEVICES_OUT_OF_BATTERY = []
 file_name = ""
 if "out" in sys.argv:
     ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
-    DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=1)
+    DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=NUM_DEVICES_OUT_BATTERY)
     print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of battery at round {ROUND_BATTERY + 1}")
     name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{DEVICES_OUT_OF_BATTERY}"
 else:
@@ -242,7 +243,7 @@ async def main():
         weights = global_model.trainable_weights
         assert len(weights) != 0
         FedProx.SERVER_WEIGHTS = weights
-        file = 'FedProx_' + name
+        file = f'FedProx{MU}_' + name
     else:
         file = 'FedAvg_' + name
 

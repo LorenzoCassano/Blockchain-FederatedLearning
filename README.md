@@ -1,35 +1,14 @@
 # Federated Learning on Blockchain with Hospital Peers for Alzheimer's MRI Image Classification
+Project of Blockchain and cryptocurrencies, in this work it has been expanded the original project to the following link:https://github.com/AnaNSi-research/FederatedLearningBlockchain.
 
-## Note
-This is tje result of a student project for the course on Blockchain and Cryptocurrencies, master degree on Artificial Intelligence, University of Bologna, held by Prof. Stefano Ferretti.
-
-Authors:
-* G. Cialone
-* F. Imboccioli
-
-original project link: https://github.com/Imbo9/fl_blockchain
-
-## Abstract
-
-This project focuses on the implementation of **federated learning** techniques within a **blockchain** framework to create a collaborative model for classifying MRI images of Alzheimer's patients. The primary objective is to enhance the model's performance by leveraging ensemble models in the weight space of neural networks rather than simply averaging the scores of different model instances.
-
-The main advantages of this approach are twofold:
-
-1. **Reduced Variance and Bias**: By employing ensemble techniques in the weight space, the aggregated model achieves a more balanced trade-off between variance and bias. This leads to improved generalization and better performance on unseen data.
-
-1. **Privacy and Security**: Addressing privacy concerns, hospitals do not share or upload the raw datasets to the blockchain. Instead, they only share the model weights obtained from each federated learning round. This ensures that sensitive patient data remains protected.
-
-Additionally, the approach addresses storage capacity issues as the weights are stored on IPFS (InterPlanetary File System), and only the hash of the weights is loaded onto the blockchain for aggregation.
-
-The key steps of the process are as follows:
-
-1. Hospitals participate in federated learning rounds and train their respective models locally on their datasets.
-1. Model weights, not raw data, are shared by the hospitals after each round.
-1. The shared model weights are securely uploaded onto the blockchain (with the actual weights stored on IPFS).
-1. The blockchain aggregates the weights, leading to the creation of an improved, collaborative model.
-1. The process is iterated over multiple rounds to continuously improve the model's performance.
-
-By adopting this federated learning approach on a blockchain, hospitals can collectively benefit from a more powerful and privacy-preserving model without directly sharing sensitive data. This contributes to a better understanding and classification of Alzheimer's disease, even when dealing with diverse datasets from different hospital sources.
+Additional features:
+<ul>
+<li>Implemented Federated Proximal [1]</li>
+<li>Insert the simulation of out of battery device (devices which do not send weights)</li>
+<li>Simulation of more devices (greater than 3)</li>
+<li>Adding a new dataset</li>
+<li>Make and analysis different experiments on both dataset</li>
+</ul>
 
 ## Setup
 This setup is just for a simulation
@@ -86,18 +65,50 @@ https://github.com/ipfs/ipfs-desktop/releases
 ### check network
 `brownie networks list`
 
-### setup first time
-`brownie run .\scripts\setup.py main --network fl-local` 
-#### setup after first time
-`brownie run .\scripts\setup.py --network fl-local`
-
 ## Running
 This is just a simulation. For concurruncy problems on training on the same GPU, the _collaborator.py_ script contains a loop that trains the
 different hospital model instances one at time in sequence. In a real time scenario, with more than one peer, it is possible to run 
 the different learnings at the same time and it works in the same way.
+
+### setup first time
+It is possible to choose the dataset, inserting the parameter, "brain_tumor" it will be used the brain tumor dataset, if the dataset is not sepcify it will be used the Alzheimer dataset
+
+For **Brain Tumor**:
+
+`brownie run .\scripts\setup.py main brain_tumor --network fl-local` 
+
+For **Alzheimer**
+
+`brownie run .\scripts\setup.py main --network fl-local` 
+
+#### setup after first time
+`brownie run .\scripts\setup.py --network fl-local`
+
+The number of devices is choosen by the constants
+
 ### run collaborator
 `brownie run .\scripts\collaborator.py --network fl-local`
+
+It is possible to insert the parameter _"out"_ to randomly select the option _"devices out of battery"_.
+The number of devices out of battery can be selected by the constants, instead the device out of battery and the round which they do not send the weights is randomly select.
+
+`brownie run .\scripts\collaborator.py out --network fl-local`
+
+**Notes**: In this configuration you need to wait 3600 s to validate if a device send the weights or not, it possible to change the time to wait, changing the constants TIMEOUT_SECONDS and TIMEOUT_DEVICES for simulation purpose.
 
 ### run federated_learning
 #### another shell
 `brownie run .\scripts\manager.py --network fl-local`
+
+It is possible to use the parameter _FedProx_ to specify the using of Federated Prox technique.
+
+`brownie run .\scripts\manager.py FedProx --network fl-local`
+
+## Authors
+<ul>
+<li>Lorenzo Cassano</li>
+<li>Jacopo D'Abramo</li>
+</ul>
+
+## References
+[1]: Li, Tian, et al. "Federated optimization in heterogeneous networks." Proceedings of Machine learning and systems 2 (2020): 429-450.

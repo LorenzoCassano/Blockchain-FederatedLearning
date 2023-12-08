@@ -1,6 +1,6 @@
 class Hospital:
     def __init__(self, name, dataset,dataset_name):
-        self.dataset_name = dataset_name
+        self._dataset_name = dataset_name
         self._name = name
         self._dataset = dataset
         self._address = None
@@ -64,3 +64,14 @@ class Hospital:
     @weights.setter
     def weights(self, value):
         self._weights = value
+
+    @property
+    def dataset_name(self):
+        return self._dataset_name
+
+    @dataset_name.setter
+    def dataset_name(self, value):
+        self._dataset_name = value
+
+    def __str__(self):
+        return f"{self._dataset_name}"

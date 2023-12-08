@@ -16,7 +16,7 @@ def get_encoded_model(num_classes, approach = "FedAvg"):
     if approach == "FedAvg":
         model = FedAvg(num_classes)
     else:
-        model = FedProx(num_classes)
+        model = FedProx(num_classes, mu=MU)
 
     JSON_model = model.to_json()
     encoded_model = JSON_model.encode("utf-8")

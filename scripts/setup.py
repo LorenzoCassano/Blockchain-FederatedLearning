@@ -20,7 +20,7 @@ if "main" in sys.argv:
 
 
 
-def main(dataset="",number_device=3):
+def main():
     """
     1)  Hospitals creation
     """
@@ -38,11 +38,11 @@ def main(dataset="",number_device=3):
     if isCreated:
         print("Loading dataset from pkl files")
         hospitals = get_hospitals()
-        print("pkl loaded", hospitals['A'].dataset_name)
+        print(hospitals['A'])
+        print("pkl loaded", hospitals['A'].dataset_name())
     else:
-        n = int(number_device)
-        hospital_split = generate_random_split(n)
-        print(f"Creating dataset from {train_path} with {n} devices")
+        hospital_split = generate_random_split(NUM_DEVICES)
+        print(f"Creating dataset from {train_path} with {NUM_DEVICES} devices")
         print_hospital_split(hospital_split)
         # saving the file
 
