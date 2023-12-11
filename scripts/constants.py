@@ -2,7 +2,7 @@
 WIDTH = 176
 HEIGHT = 208
 DEPTH = 1
-MU = 0.01 # Hyperparameter
+MU = 0.001 # Hyperparameter
 
 #Dataset name
 BRAIN_TUMOR = "Brain_Tumor"
@@ -23,7 +23,7 @@ LABELS_TUMOR = ["glioma", "meningioma", "notumor", "pituitary"]
 
 # Train constants
 NUM_ROUNDS = 2
-NUM_EPOCHS = 1
+NUM_EPOCHS = 2
 BATCH_SIZE = 32
 
 TIMEOUT_SECONDS = 3600
@@ -55,5 +55,5 @@ DATASET_TRAIN_PATH_TUM = "./Brain_Tumor/train"
 DATASET_TEST_PATH_TUM = "./Brain_Tumor/test"
 
 # setup
-NUM_DEVICES = 5
+NUM_DEVICES = 3
 NUM_DEVICES_OUT_BATTERY = 1

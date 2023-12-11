@@ -20,7 +20,7 @@ if "main" in sys.argv:
 
 
 
-def main():
+def main(*args, **kwargs):
     """
     1)  Hospitals creation
     """
@@ -38,8 +38,6 @@ def main():
     if isCreated:
         print("Loading dataset from pkl files")
         hospitals = get_hospitals()
-        print(hospitals['A'])
-        print("pkl loaded", hospitals['A'].dataset_name())
     else:
         hospital_split = generate_random_split(NUM_DEVICES)
         print(f"Creating dataset from {train_path} with {NUM_DEVICES} devices")

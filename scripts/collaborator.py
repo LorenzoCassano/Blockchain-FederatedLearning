@@ -109,6 +109,8 @@ def round_loop(round, fed_dict, file_name):
             print(f"Device {hospital_name} is training ...")
             fed_dict = fitting_model_and_loading_weights(hospital_name, round, fed_dict)
     dir_path = file_name.split('_')[0]
+    if dir_path == 'Brain':
+        dir_path = 'Brain_Tumor'
     path = './results/' + dir_path +'/'+ file_name + '.json'
     with open(path, 'w') as json_file:
         json.dump(fed_dict, json_file)
