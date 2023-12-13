@@ -167,6 +167,8 @@ def get_hospitals():
 
 def set_hospitals(hospitals):
     serialized_hospitals = pickle.dumps(hospitals)
+    if not os.path.exists("./off_chain"):
+        os.makedirs("./off_chain")
     with open(HOSPITALS_FILE_PATH, "wb") as file:
         file.write(serialized_hospitals)
 
