@@ -5,7 +5,7 @@ import sys
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import createHospitals, set_hospitals, get_hospitals, print_line, generate_random_split,print_hospital_split
+from utils_simulation import createHospitals, set_hospitals, get_hospitals, print_line, generate_random_split,print_hospital_split, save_dataset
 from classHospital import Hospital
 from brownie import FederatedLearning, accounts
 import deploy_FL
@@ -46,17 +46,9 @@ def main(*args, **kwargs):
 
         with open(HOSPITAL_SPLIT_FILE, 'w') as json_file:
             json.dump(hospital_split, json_file)
-        hospitals = createHospitals(train_path,test_path,hospital_split,dataset_name)
+        hospitals, hospital_dataset = createHospitals(train_path,test_path,hospital_split,dataset_name)
+        save_dataset(hospital_dataset)
 
-
-    for el in hospitals.keys():
-        print(f"Hospital {el}, has X_train shape  ", hospitals[el].dataset["X_train"].shape)
-        print(f"Hospital {el}, has y_trai shape ", hospitals[el].dataset["y_train"].shape)
-        print(f"Hospital {el}, has X_val shape ", hospitals[el].dataset["X_val"].shape)
-        print(f"Hospital {el}, has y_val shape ", hospitals[el].dataset["y_val"].shape)
-        print(f"Hospital {el}, has X_test shape ", hospitals[el].dataset["X_test"].shape)
-        print(f"Hospital {el}, has y_test shape ", hospitals[el].dataset["y_test"].shape)
-        print("--------------------------------------------")
 
     print("[1]\tHospitals have been created")
     print_line("*")
@@ -109,14 +101,12 @@ def main(*args, **kwargs):
             hospital_address, {"from": manager}
         )
         add_tx.wait(1)
+
+    set_hospitals(hospitals)
     print("[5]\tBlockchain opened and collaborators authorized to use it")
     print_line("*")
 
-    for key, hospital in hospitals.items():
-        print(f"Key: {key}")
-        print()
-        # set the Hospital file
-        set_hospitals(hospitals)
+
 
 
 if __name__ == "__main__":

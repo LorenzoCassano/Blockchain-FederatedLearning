@@ -14,6 +14,7 @@ HOSPITAL_SPLIT_FILE = 'hospital_split.json'
 TEST_SPLIT = 0.3
 VAL_SPLIT = 0.5
 PIN_BOOL = True
+OFF_CHAIN = "./off_chain/"
 
 # Alzheimer constants
 LABELS_ALZ = ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"]

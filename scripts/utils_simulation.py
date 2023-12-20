@@ -11,6 +11,15 @@ from sklearn.model_selection import train_test_split
 import json
 from constants import *
 
+def load_dataset(hospitals):
+  hospital_dataset = {}
+  for hospital_name in hospitals.keys():
+    dataset_path = OFF_CHAIN + hospital_name  # Adjust the path
+    hospital_dataset[hospital_name] = tf.data.Dataset.load(dataset_path)
+
+  dataset_path = OFF_CHAIN + 'test'
+  hospital_dataset['test'] = tf.data.Dataset.load(dataset_path)
+  return hospital_dataset
 
 def print_hospital_split(hospital_split):
     for key, value in hospital_split.items():
@@ -43,121 +52,66 @@ def set_reproducibility(seed=RANDOM_SEED):
     tf.keras.utils.set_random_seed(seed)
 
 
-def create_dataset(img_folder):
-    img_data_array = []
-    class_name = []
-
-    if DATASET_LIMIT:
-        for dir1 in os.listdir(img_folder):
-            for idx, file in enumerate(os.listdir(os.path.join(img_folder, dir1))):
-                image_path = os.path.join(img_folder, dir1, file)
-                image = cv2.imread(image_path, 0)
-                image = np.array(image)
-                image = image.astype("float32")
-                img_data_array.append(image)
-                class_name.append(dir1)
-
-                if idx == DATASET_LIMIT:
-                    break
-    else:
-        for dir1 in os.listdir(img_folder):
-            for file in os.listdir(os.path.join(img_folder, dir1)):
-                image_path = os.path.join(img_folder, dir1, file)
-                image = cv2.imread(image_path, 0)
-                image = np.array(image)
-                image = image.astype("float32")
-                img_data_array.append(image)
-                class_name.append(dir1)
-    return img_data_array, class_name
+def preprocess_data(image, label):
+    label = tf.one_hot(label, depth=4)
+    return image, label
 
 
 def createHospitals(train_path, test_path, hospital_split, dataset_name):
-    hospitals = {}
-
-    # extract the image array and class name
-    img_data, class_name = create_dataset(train_path)
-    img_data_test, class_name_test = create_dataset(test_path)
-
-    """
-    target_dict = {
-        "NonDemented": 0,
-        "VeryMildDemented": 1,
-        "MildDemented": 2,
-        "ModerateDemented": 3,
-    }
-    """
     labels = LABELS_ALZ if train_path == DATASET_TRAIN_PATH_ALZ else LABELS_TUMOR
 
-    target_dict = {label: index for index, label in enumerate(labels)}
+    test_dataset = tf.keras.preprocessing.image_dataset_from_directory(
+        test_path,
+        seed=RANDOM_SEED,
+        image_size=(WIDTH, HEIGHT),
+        batch_size=BATCH_SIZE,
+        class_names=labels,
+        color_mode='grayscale',
+        shuffle=False
+    )
 
-    target_val = [target_dict[class_name[i]] for i in range(len(class_name))]
+    train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
+        train_path,
+        seed=RANDOM_SEED,
+        image_size=(WIDTH, HEIGHT),
+        batch_size=None,  # it is needed for the split
+        class_names=labels,
+        color_mode='grayscale',
+        shuffle=True
+    )
 
-    target_val_test = [target_dict[class_name_test[i]] for i in range(len(class_name_test))]
+    # one hot encoding
 
-    X = np.array(img_data, np.float32)
-    y = np.array(list(map(int, target_val)), np.float32)
+    train_dataset = train_dataset.map(preprocess_data)
 
-    X_test = np.array(img_data_test, np.float32)
-    y_test = np.array(list(map(int, target_val_test)), np.float32)
+    test_dataset = test_dataset.map(preprocess_data)
 
-    rows = len(X)
-    values_list = []
-    for hospital_name in hospital_split:
-        values_list += [hospital_name] * int(rows * hospital_split[hospital_name])
+    train_dataset = train_dataset.shuffle(buffer_size=len(train_dataset), reshuffle_each_iteration=False)
+    # split the dataset for different devices
+    hospitals = {}
 
-    if len(values_list) < len(X):  # case useful for approximation
-        difference = len(X) - len(values_list)
-        values_list += [list(hospital_split.keys())[-1]] * difference  # adding last element
+    total_size = train_dataset.cardinality().numpy()
 
-    indices = np.arange(X.shape[0])
-    np.random.shuffle(indices)
-    X = X[indices]
-    y = y[indices]
+    split_sizes = {key: int(value * total_size) for key, value in
+                   hospital_split.items()}  # dict for hospital e number of data for the hospital
 
-    df = pd.DataFrame({"X": list(X), "y": list(y)})
-    if df.shape[0] != len(values_list):
-        values_list.append("Gamma")
+    elements = split_sizes[list(split_sizes.keys())[-1]]  # number of data for last device
 
-    df["hospital"] = values_list
-    # df['hospital'] = df['hospital'].map(hospitals)
+    split_sizes[list(split_sizes.keys())[-1]] = elements + (
+                total_size - sum(split_sizes.values()))  # reset the number of data for last device
 
-    dataset = dict.fromkeys(list(hospital_split.keys()))
+    hospital_dataset = {}
+    samples_taken = 0
+    for hospital_name, size in split_sizes.items():
+        train_dataset_device = train_dataset.skip(samples_taken).take(size).batch(
+            batch_size=32)  # Adjust batch_size as needed
+        samples_taken += size
 
-    for hospital_name in hospital_split:
-        X_h = df[df["hospital"] == hospital_name]["X"].to_numpy()
-        y_h = df[df["hospital"] == hospital_name]["y"].to_numpy()
+        hospitals[hospital_name] = Hospital(hospital_name, dataset_name)
+        hospital_dataset[hospital_name] = train_dataset_device.shuffle(buffer_size = len(train_dataset_device),reshuffle_each_iteration=True)
 
-        X_h = np.stack(X_h, axis=0)
-        y_h = np.stack(y_h, axis=0)
-
-        dataset[hospital_name] = {}
-
-        if train_path == DATASET_TRAIN_PATH_ALZ:
-            (X_train, X_test, y_train, y_test,) = train_test_split(X_h, y_h, test_size=VAL_SPLIT,
-                                                                   random_state=RANDOM_SEED)
-            (
-                X_test,
-                X_val,
-                y_test,
-                y_val,
-            ) = train_test_split(X_test, y_test, test_size=TEST_SPLIT, random_state=RANDOM_SEED)
-        else:
-            (X_train, X_val, y_train, y_val,) = train_test_split(X_h, y_h, test_size=VAL_SPLIT,
-                                                                 random_state=RANDOM_SEED)
-
-        dataset[hospital_name]["X_train"] = np.expand_dims(np.array(X_train, np.float32), axis=-1)
-        dataset[hospital_name]["y_train"] = tf.one_hot(y_train, depth=len(labels))
-        dataset[hospital_name]["X_test"] = np.expand_dims(np.array(X_test, np.float32), axis=-1)
-        dataset[hospital_name]["y_test"] = tf.one_hot(y_test, depth=len(labels))
-        dataset[hospital_name]["X_val"] = np.expand_dims(np.array(X_val, np.float32), axis=-1)
-        dataset[hospital_name]["y_val"] = tf.one_hot(y_val, depth=len(labels))
-
-        hospitals[hospital_name] = Hospital(hospital_name, dataset[hospital_name], dataset_name)
-
-
-    return hospitals
-
-
+    hospital_dataset['test'] = test_dataset
+    return hospitals, hospital_dataset
 def get_hospitals():
     hospitals = {}
     with open(HOSPITALS_FILE_PATH, "rb") as file:
@@ -167,11 +121,22 @@ def get_hospitals():
 
 def set_hospitals(hospitals):
     serialized_hospitals = pickle.dumps(hospitals)
-    if not os.path.exists("./off_chain"):
-        os.makedirs("./off_chain")
+    if not os.path.exists(OFF_CHAIN):
+        os.makedirs(OFF_CHAIN)
     with open(HOSPITALS_FILE_PATH, "wb") as file:
         file.write(serialized_hospitals)
 
+def save_dataset(hospital_dataset):
+    if not os.path.exists(OFF_CHAIN):
+        os.makedirs(OFF_CHAIN)
+
+    for key, hospital in hospital_dataset.items():
+        print(f"Key: {key}")
+        print()
+        # set the Hospital file
+        dataset_path = OFF_CHAIN + key
+        # tf.data.save(hospital_obj.train_dataset, dataset_path)
+        tf.data.Dataset.save(hospital, dataset_path)
 
 def get_hospital_split():
     with open(HOSPITAL_SPLIT_FILE, 'r') as json_file:

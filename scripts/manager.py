@@ -5,7 +5,7 @@ import sys
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import get_X_test, get_y_test, print_line, set_reproducibility, get_hospitals
+from utils_simulation import get_X_test, get_y_test, print_line, set_reproducibility, get_hospitals,load_dataset
 from utils_manager import *
 
 from brownie import FederatedLearning, network, accounts
@@ -18,7 +18,7 @@ import numpy as np
 import asyncio
 import time
 import pickle
-
+import tensorflow as tf
 
 set_reproducibility()
 
@@ -46,9 +46,14 @@ Parameter setting
 model_test = FedAvg(NUM_CLASSES) # creation of the global model always FedAvg, only useful to store weights
 model_test.compile(**compile_info)
 model_test.build((None, WIDTH, HEIGHT, DEPTH))
-X_test = get_X_test()
-y_test = get_y_test()
 hospitals = get_hospitals()
+hospital_dataset = load_dataset(hospitals)
+
+test_dataset = hospital_dataset['test']
+
+first_key = list(hospitals.keys())[0]
+labels = LABELS_ALZ if hospitals == ALZHEIMER else LABELS_TUMOR
+
 with open('devices_out_of_battery.pkl', 'rb') as file:
     loaded_list = pickle.load(file)
 
@@ -97,18 +102,20 @@ def test_information(aggregated_weights):
         function to obtain information about the global model
     """
     model_test.set_weights(aggregated_weights)
-    results = model_test.predict(X_test)
-    y_predicted = list(map(np.argmax, results))
-    labels_y_test = np.argmax(y_test, axis=1)
-    classification_rep = classification_report(
-        labels_y_test,
-        y_predicted,  # labels=LABELS
-    )
-    FL_classification_report.append(classification_rep)
+    results = model_test.predict(test_dataset.map(lambda x, y: x))
+    y_predicted = list((map(np.argmax, results)))
+    labels_y_test = list(test_dataset.unbatch().map(lambda x, y: tf.argmax(y)))
 
+    FL_classification_report.append(
+        classification_report(
+            labels_y_test,
+            y_predicted, labels=labels
+        )
+    )
     #print("y_predicted: ", y_predicted)
     #print("y_test: ", labels_y_test)
-    FL_evaluation.append(model_test.evaluate(X_test, y_test))
+    print("Evaluation of the global model")
+    FL_evaluation.append(model_test.evaluate(test_dataset))
 
 def federated_learning():
 

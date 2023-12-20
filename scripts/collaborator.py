@@ -6,7 +6,7 @@ from numpy import require
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import get_hospitals, print_line, set_reproducibility, round_out_of_battery, device_out_of_battery
+from utils_simulation import get_hospitals, print_line, set_reproducibility, round_out_of_battery, device_out_of_battery, load_dataset
 from utils_collaborator import *
 from brownie import FederatedLearning
 from classHospital import Hospital
@@ -28,6 +28,8 @@ set_reproducibility()
 
 # retrieve the hospitals information
 hospitals = get_hospitals()
+hospital_dataset = load_dataset(hospitals)
+test_dataset = hospital_dataset['test']
 # connect to IPFS and Blockchain
 IPFS_client = ipfshttpclient.connect()
 
@@ -123,45 +125,26 @@ def aggregatedWeightsReady_event():
         retrieving_aggreagted_weights(hospital_name)
 
 
-def find_data(_hospital_name):
-    X_train = hospitals[_hospital_name].dataset["X_train"]
-    y_train = hospitals[_hospital_name].dataset["y_train"]
-    X_val = hospitals[_hospital_name].dataset["X_val"]
-    y_val = hospitals[_hospital_name].dataset["y_val"]
-    X_test = hospitals[_hospital_name].dataset["X_test"]
-    y_test = hospitals[_hospital_name].dataset["y_test"]
-    return X_train, y_train, X_val, y_val, X_test, y_test
-
 
 def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
-    """fitting the model"""
-
-    X_train, y_train, X_val, y_val, X_test, y_test = find_data(_hospital_name)
-    # Random epoch for FedProx
+    # da fare
+    train_dataset = hospital_dataset[_hospital_name]
     epochs = random.randint(1, NUM_EPOCHS) if isinstance(hospitals[_hospital_name].model, FedProx) else NUM_EPOCHS
     print(f"Number of epoch for {_hospital_name} is {epochs}")
     fed_dict[_hospital_name][round] = {}
+
     for epoch in range(epochs):
-        # Training phase
-        for i in range(0, len(X_train), BATCH_SIZE):
-            batch_x = X_train[i:i + BATCH_SIZE]
-            batch_y = y_train[i:i + BATCH_SIZE]
 
-            train_loss = hospitals[_hospital_name].model.train_step(batch_x, batch_y)
+        for imgs,labels in train_dataset:
 
-        # Validation phase
-        for i in range(0, len(X_val), BATCH_SIZE):
-            val_batch_x = X_val[i:i + BATCH_SIZE]
-            val_batch_y = y_val[i:i + BATCH_SIZE]
-
-            val_loss = hospitals[_hospital_name].model.val_step(val_batch_x, val_batch_y)
+            train_loss = hospitals[_hospital_name].model.train_step(imgs, labels)
 
         mean_train_loss = np.mean(train_loss)
-        mean_val_loss = np.mean(val_loss)
-        print(f"Epoch {epoch + 1}, Training Loss={mean_train_loss:.4f}, Validation Loss={mean_val_loss:.4f}")
-        fed_dict[_hospital_name][round][epoch] = [str(mean_train_loss), str(mean_val_loss)]
+        print(f"Epoch {epoch + 1}:\tTrain Loss={mean_train_loss:.4f}")
+        fed_dict[_hospital_name][round][epoch] = [str(mean_train_loss)]
+
     hospitals_evaluation[_hospital_name].append(
-        hospitals[_hospital_name].model.evaluate(X_test, y_test)
+        hospitals[_hospital_name].model.evaluate(test_dataset)
     )
 
     # updating the old weights with the parameters from the newly fitted model

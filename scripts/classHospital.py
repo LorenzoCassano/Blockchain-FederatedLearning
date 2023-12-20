@@ -1,8 +1,7 @@
 class Hospital:
-    def __init__(self, name, dataset,dataset_name):
+    def __init__(self, name,dataset_name):
         self._dataset_name = dataset_name
         self._name = name
-        self._dataset = dataset
         self._address = None
         self._model = None
         self._compile_info = None
@@ -16,14 +15,6 @@ class Hospital:
     @name.setter
     def name(self, value):
         self._name = value
-
-    @property
-    def dataset(self):
-        return self._dataset
-
-    @dataset.setter
-    def dataset(self, value):
-        self._dataset = value
 
     @property
     def address(self):
