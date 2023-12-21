@@ -51,8 +51,8 @@ hospital_dataset = load_dataset(hospitals)
 
 test_dataset = hospital_dataset['test']
 
-first_key = list(hospitals.keys())[0]
-labels = LABELS_ALZ if hospitals == ALZHEIMER else LABELS_TUMOR
+
+
 
 with open('devices_out_of_battery.pkl', 'rb') as file:
     loaded_list = pickle.load(file)
@@ -68,6 +68,9 @@ else:
 
 hospital_name = list(hospitals.keys())[0]
 dataset = hospitals[hospital_name].dataset_name
+
+labels = LABELS_ALZ if dataset == ALZHEIMER else LABELS_TUMOR
+
 file_name = f"{dataset}_{file_name}"
 
 def retrive_information():
@@ -104,19 +107,22 @@ def test_information(aggregated_weights):
     model_test.set_weights(aggregated_weights)
     results = model_test.predict(test_dataset.map(lambda x, y: x))
     y_predicted = list((map(np.argmax, results)))
-    labels_y_test = list(test_dataset.unbatch().map(lambda x, y: tf.argmax(y)))
+    labels_y_test = list(test_dataset.unbatch().map(lambda x, y: (tf.argmax(y))))
 
-    FL_classification_report.append(
-        classification_report(
+    report = classification_report(
             labels_y_test,
-            y_predicted, labels=labels
+            y_predicted,
+            target_names=labels,
+            zero_division=False,
+            output_dict=True
         )
-    )
-    #print("y_predicted: ", y_predicted)
-    #print("y_test: ", labels_y_test)
-    print("Evaluation of the global model")
-    FL_evaluation.append(model_test.evaluate(test_dataset))
 
+    FL_classification_report.append(report)
+
+    print()
+    print("Evaluation of the global model")
+    print(f"Accuracy: {report['accuracy']:.3f}\tMacro-F1: {report['macro avg']['f1-score']:.3f} ")
+    print()
 def federated_learning():
 
     weights_dim, hospitals_weights, hospitals_number, hospitals_addresses = retrive_information()
@@ -314,7 +320,7 @@ async def main():
 
 
     for round in range(NUM_ROUNDS):
-        print(f"FL ROUND {round+1}...")
+        print(f"\t\tFL ROUND {round+1}...")
 
         # await for the collaborators to send the weights
         coroutine_SW = contract_events.listen(
@@ -344,16 +350,11 @@ async def main():
     print("RESULTS - Overall Performance Evaluation through Federated Learning...")
     acc = {}
     for round in range(NUM_ROUNDS):
-        acc[round] = FL_evaluation[round][1]
-        print(
-            f"Round {round+1}:\t Loss: {FL_evaluation[round][0]:.3f} - Accuracy: {FL_evaluation[round][1]:.3f}"
-        )
-
-        print(FL_classification_report[round] + "\n")
+        print(FL_classification_report[round])
 
     path = f"./results/{dataset}/{file_name}.json"
-    with open(path, 'w') as json_file:
-        json.dump(acc, json_file)
+    #with open(path, 'w') as json_file:
+    #    json.dump(acc, json_file)
 
     sys.exit(0)
 

@@ -16,13 +16,14 @@ import asyncio
 import json
 import pickle
 from constants import NUM_ROUNDS
-
+from sklearn.metrics import classification_report, f1_score, accuracy_score
 from fedAvg import FedAvg
 from fedProx import FedProx
 
 from constants import *
 import random
 import time
+import tensorflow as tf
 
 set_reproducibility()
 
@@ -143,13 +144,24 @@ def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
         print(f"Epoch {epoch + 1}:\tTrain Loss={mean_train_loss:.4f}")
         fed_dict[_hospital_name][round][epoch] = [str(mean_train_loss)]
 
+    print()
+    print(f"Evaluation for device {_hospital_name}")
+    print('Computing predictions....')
+    labels_y_test = list(test_dataset.unbatch().map(lambda x, y: (tf.argmax(y))))
+    results = hospitals[_hospital_name].model.predict(test_dataset.map(lambda x, y: x))
+    y_predicted = list((map(np.argmax, results)))
+
+    f1_value = f1_score(labels_y_test,y_predicted,average='macro')
+    accuracy_value = accuracy_score(labels_y_test, y_predicted)
+    print(f'Accuracy: {accuracy_value:.3f}\tMacro-F1: {f1_value:.3f}')
+    print()
+    print('-'*100)
+    '''
     hospitals_evaluation[_hospital_name].append(
         hospitals[_hospital_name].model.evaluate(test_dataset)
     )
-
-    # updating the old weights with the parameters from the newly fitted model
+    '''
     hospitals[_hospital_name].weights = hospitals[_hospital_name].model.get_weights()
-
     """ loading weights """
     weights = hospitals[_hospital_name].weights
     weights_bytes = weights_encoding(weights)
