@@ -131,7 +131,7 @@ def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
     # da fare
     train_dataset = hospital_dataset[_hospital_name]
     epochs = random.randint(1, NUM_EPOCHS) if isinstance(hospitals[_hospital_name].model, FedProx) else NUM_EPOCHS
-    print(f"Number of epoch for {_hospital_name} is {epochs}")
+    print(f"Number of epochs for {_hospital_name} are {epochs}")
     fed_dict[_hospital_name][round] = {}
 
     for epoch in range(epochs):

@@ -62,16 +62,16 @@ with open('devices_out_of_battery.pkl', 'rb') as file:
 model_used = "FedAvg" # model used by collaborators
 if "FedProx" in sys.argv:
     model_used = "FedProx"
-    file_name = f"FedProx{MU}_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
+    file_name = f"FedProx{MU}_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}"
 else:
-    file_name = f"FedAvg_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}_accuracy"
+    file_name = f"FedAvg_{NUM_ROUNDS}_{NUM_EPOCHS}_{loaded_list}"
 
 hospital_name = list(hospitals.keys())[0]
 dataset = hospitals[hospital_name].dataset_name
 
 labels = LABELS_ALZ if dataset == ALZHEIMER else LABELS_TUMOR
 
-file_name = f"{dataset}_{file_name}"
+
 
 def retrive_information():
     # retrieving the parameters IPFS hashes loaded by the collaborators
@@ -113,16 +113,19 @@ def test_information(aggregated_weights):
             labels_y_test,
             y_predicted,
             target_names=labels,
-            zero_division=False,
-            output_dict=True
+            zero_division=False
         )
 
     FL_classification_report.append(report)
-
+    f1_value = report['macro avg']['f1-score']
     print()
     print("Evaluation of the global model")
-    print(f"Accuracy: {report['accuracy']:.3f}\tMacro-F1: {report['macro avg']['f1-score']:.3f} ")
+    print(f"Accuracy: {report['accuracy']:.3f}\tMacro-F1: {f1_value:.3f} ")
     print()
+    return f1_value
+
+
+
 def federated_learning():
 
     weights_dim, hospitals_weights, hospitals_number, hospitals_addresses = retrive_information()
@@ -200,7 +203,8 @@ def federated_learning():
     )
     send_aggregated_weights_tx.wait(1)
 
-    test_information(aggregated_weights)
+    f1_value = test_information(aggregated_weights)
+    return f1_value
 
 async def starting():
     print("I am the Manager")
@@ -262,6 +266,9 @@ async def starting():
 
 
 async def main():
+    best_f1 = 0.
+    best_model = None
+
     print("I am the Manager")
     """uploading model and compile information on the Blockchain"""
     encoded_model = get_encoded_model(NUM_CLASSES, model_used)
@@ -337,7 +344,10 @@ async def main():
         reset_weights_tx.wait(1)
 
         # continue after reception
-        federated_learning()
+        f1_value = federated_learning()
+        if best_f1 < f1_value:
+            best_f1 = f1_value
+            best_model = model_test
         print_line("*")
 
     # close the BLockchain at the end of the Federated Learning
@@ -352,9 +362,13 @@ async def main():
     for round in range(NUM_ROUNDS):
         print(FL_classification_report[round])
 
-    path = f"./results/{dataset}/{file_name}.json"
-    #with open(path, 'w') as json_file:
-    #    json.dump(acc, json_file)
+
+    print("Saving best model ...")
+    path = f"./models/{dataset}/" + file_name + '/'
+    if not os.path.exists(path):
+        # If it doesn't exist, create it
+        os.makedirs(path)
+    best_model.save_weights(path)
 
     sys.exit(0)
 
