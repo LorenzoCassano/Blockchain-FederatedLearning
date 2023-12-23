@@ -1,5 +1,5 @@
 import tensorflow as tf
-from utils_simulation import set_reproducibility
+#from utils_simulation import set_reproducibility
 from tensorflow.keras.constraints import MaxNorm
 from tensorflow.keras.initializers import GlorotUniform, Zeros
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout, Rescaling
@@ -10,7 +10,7 @@ class FedAvg(tf.keras.Model):
     def __init__(self, num_classes=4, random_seed=42):
         super(FedAvg, self).__init__()
 
-        set_reproducibility()
+        #set_reproducibility()
         # Layers
         self.glorot_initializer = GlorotUniform(seed=random_seed)
         self.rescale_layer = Rescaling(1.0 / 255)
