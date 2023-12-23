@@ -47,8 +47,8 @@ HOSPITALS_FILE_PATH = (
     "./off_chain/hospitals.pkl"
 )
 # Alzheimer dataset
-DATASET_TRAIN_PATH_ALZ = "./Database/train"
-DATASET_TEST_PATH_ALZ = "./Database/test"
+DATASET_TRAIN_PATH_ALZ = "./Alzheimer/train"
+DATASET_TEST_PATH_ALZ = "./Alzheimer/test"
 DATASET_LIMIT = None
 
 # Tumor dataset
