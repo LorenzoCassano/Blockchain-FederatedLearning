@@ -250,9 +250,12 @@ def device_out_of_battery(hospitals, n=1):
     hospitals_name = list(hospitals.keys())
     for _ in range(n):
         idx = random.randint(0, len(hospitals) - 1)
+        # Different devices out of battery
+        while hospitals_name[idx] in devices:
+          idx = random.randint(0, len(hospitals) - 1)
         devices.append(hospitals_name[idx])
     return devices
 
 
 def round_out_of_battery(rounds):
-    return random.randint(1, rounds - 1)  # device cannot be out of memeory at first round
+    return random.randint(1, rounds//2)  # not a round so far, for better sperimentation

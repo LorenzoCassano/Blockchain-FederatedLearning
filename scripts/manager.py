@@ -113,7 +113,8 @@ def test_information(aggregated_weights):
             labels_y_test,
             y_predicted,
             target_names=labels,
-            zero_division=False
+            zero_division=False,
+            output_dict=True
         )
 
     FL_classification_report.append(report)
@@ -362,14 +363,14 @@ async def main():
     for round in range(NUM_ROUNDS):
         print(FL_classification_report[round])
 
-
+    """
     print("Saving best model ...")
     path = f"./models/{dataset}/" + file_name + '/'
     if not os.path.exists(path):
         # If it doesn't exist, create it
         os.makedirs(path)
     best_model.save_weights(path)
-
+    """
     sys.exit(0)
 
 
