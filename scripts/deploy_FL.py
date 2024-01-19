@@ -25,19 +25,23 @@ def deploy_mocks():
     """
     print(f"The active network is {network.show_active()}")
     print("Deploying Mocks...",len(MockV3Aggregator))
+    gas_used = 0
     if len(MockV3Aggregator) <= 0:
-        MockV3Aggregator.deploy(DECIMALS, STARTING_PRICE, {"from": get_account()})
+        trans = MockV3Aggregator.deploy(DECIMALS, STARTING_PRICE, {"from": get_account()})
+        gas_used = trans.tx.gas_used
     print("Mocks Deployed!")
+    return gas_used
 
 
-def deploy_federated_learning():
+def deploy_federated_learning(gas_cons_setup):
     account = get_account()
+    gas_used = 0
     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         price_feed_address = config["networks"][network.show_active()][
             "eth_usd_price_feed"
         ]
     else:
-        deploy_mocks()
+        gas_used = deploy_mocks()
         price_feed_address = MockV3Aggregator[-1].address
 
     federated_learning = FederatedLearning.deploy(
@@ -45,6 +49,7 @@ def deploy_federated_learning():
         publish_source=config["networks"][network.show_active()].get("verify"),
     )
     print(f"Contract deployed to {federated_learning.address}")
+    gas_cons_setup['deploy_mocks_fee'] = gas_used + federated_learning.tx.gas_used
     return federated_learning
 
 

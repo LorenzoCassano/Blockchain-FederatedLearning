@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split
 import json
 from constants import *
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 def load_dataset(hospitals):
   hospital_dataset = {}
   for hospital_name in hospitals.keys():
@@ -131,8 +133,6 @@ def save_dataset(hospital_dataset):
         os.makedirs(OFF_CHAIN)
 
     for key, hospital in hospital_dataset.items():
-        print(f"Key: {key}")
-        print()
         # set the Hospital file
         dataset_path = OFF_CHAIN + key
         # tf.data.save(hospital_obj.train_dataset, dataset_path)

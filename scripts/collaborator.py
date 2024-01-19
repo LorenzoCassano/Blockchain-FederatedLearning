@@ -6,7 +6,8 @@ from numpy import require
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path)
 
-from utils_simulation import get_hospitals, print_line, set_reproducibility, round_out_of_battery, device_out_of_battery, load_dataset
+from utils_simulation import get_hospitals, print_line, set_reproducibility, round_out_of_battery, \
+    device_out_of_battery, load_dataset
 from utils_collaborator import *
 from brownie import FederatedLearning
 from classHospital import Hospital
@@ -49,15 +50,18 @@ if "out" in sys.argv:
     ROUND_BATTERY = round_out_of_battery(NUM_ROUNDS)
     DEVICES_OUT_OF_BATTERY = device_out_of_battery(hospitals, n=NUM_DEVICES_OUT_BATTERY)
     print(f"Device/s {DEVICES_OUT_OF_BATTERY} will be out of battery at round {ROUND_BATTERY + 1}")
-    name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{DEVICES_OUT_OF_BATTERY}"
+    name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{NUM_DEVICES}_{DEVICES_OUT_OF_BATTERY}"
 else:
     print("No devices out of battery")
-    name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{[]}"
+    name = f"{NUM_ROUNDS}_{NUM_EPOCHS}_{NUM_DEVICES}_{[]}"
 
 with open('devices_out_of_battery.pkl', 'wb') as file:
     # Use pickle.dump to save the list to the file
     pickle.dump(DEVICES_OUT_OF_BATTERY, file)
 
+# dict for collaborator fee
+gas_fee_collab = {hospital_name: {'retrieve_fee': [], 'send_fee': [], 'model_start_fee': 0} for hospital_name in
+                  hospitals}
 
 
 def closeState_alert(event):
@@ -73,16 +77,20 @@ def closeState_alert(event):
 
 # triggered after the START event from the Blockchain
 def start_event():
+
     for hospital_name in hospitals:
         # retrieving of the model given by the Manager
         retrieve_model_tx = FL_contract.retrieve_model(
             {"from": hospitals[hospital_name].address}
         )
+        gas_fee_collab[hospital_name]['model_start_fee'] = retrieve_model_tx.gas_used
         retrieve_model_tx.wait(1)
+
+
         custom_objects = {'FedAvg': FedAvg, 'FedProx': FedProx}
         decoded_model = decode_utf8(retrieve_model_tx)
-        print("decoded_model: ", decoded_model)
         model = model_from_json(decoded_model, custom_objects=custom_objects)
+
         print("Model ", model)
         hospitals[hospital_name].model = model
 
@@ -90,6 +98,7 @@ def start_event():
         retreive_compile_info_tx = FL_contract.retrieve_compile_info(
             {"from": hospitals[hospital_name].address}
         )
+        gas_fee_collab[hospital_name]['model_start_fee'] += retreive_compile_info_tx.gas_used
         retreive_compile_info_tx.wait(1)
 
         decoded_compile_info = decode_utf8(retreive_compile_info_tx)
@@ -111,24 +120,26 @@ def round_loop(round, fed_dict, file_name):
         else:
             print(f"Device {hospital_name} is training ...")
             fed_dict = fitting_model_and_loading_weights(hospital_name, round, fed_dict)
-    dir_path = file_name.split('_')[0]
-    if dir_path == 'Brain':
-        dir_path = 'Brain_Tumor'
-    path = './results/' + dir_path +'/'+ file_name + '.json'
+
+    path = './results/' + file_name + '.json'
     with open(path, 'w') as json_file:
         json.dump(fed_dict, json_file)
     return fed_dict
 
 
 # triggered after the 'aggregatedWeightsReady' event from the Blockchain
-def aggregatedWeightsReady_event():
+def aggregatedWeightsReady_event(round):
     for hospital_name in hospitals:
+        if hospital_name in DEVICES_OUT_OF_BATTERY and (round + 1) >= ROUND_BATTERY:
+            continue
+        print("Retrieving weights for hospital ", hospital_name)
         retrieving_aggreagted_weights(hospital_name)
-
+        print("-" * 50)
+        print()
 
 
 def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
-    # da fare
+
     train_dataset = hospital_dataset[_hospital_name]
     epochs = random.randint(1, NUM_EPOCHS) if isinstance(hospitals[_hospital_name].model, FedProx) else NUM_EPOCHS
     print(f"Number of epochs for {_hospital_name} are {epochs}")
@@ -136,8 +147,7 @@ def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
 
     for epoch in range(epochs):
 
-        for imgs,labels in train_dataset:
-
+        for imgs, labels in train_dataset:
             train_loss = hospitals[_hospital_name].model.train_step(imgs, labels)
 
         mean_train_loss = np.mean(train_loss)
@@ -151,17 +161,18 @@ def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
     results = hospitals[_hospital_name].model.predict(test_dataset.map(lambda x, y: x))
     y_predicted = list((map(np.argmax, results)))
 
-    f1_value = f1_score(labels_y_test,y_predicted,average='macro')
+    f1_value = f1_score(labels_y_test, y_predicted, average='macro')
     accuracy_value = accuracy_score(labels_y_test, y_predicted)
     print(f'Accuracy: {accuracy_value:.3f}\tMacro-F1: {f1_value:.3f}')
     print()
-    print('-'*100)
+    print_line("*")
     '''
     hospitals_evaluation[_hospital_name].append(
         hospitals[_hospital_name].model.evaluate(test_dataset)
     )
     '''
     hospitals[_hospital_name].weights = hospitals[_hospital_name].model.get_weights()
+
     """ loading weights """
     weights = hospitals[_hospital_name].weights
     weights_bytes = weights_encoding(weights)
@@ -179,7 +190,9 @@ def fitting_model_and_loading_weights(_hospital_name, round, fed_dict):
         hash_encoded,
         {"from": hospitals[_hospital_name].address},
     )
+    gas_fee_collab[_hospital_name]['send_fee'].append(send_weights_tx.gas_used)
     send_weights_tx.wait(1)
+
     return fed_dict
 
 
@@ -188,6 +201,7 @@ def retrieving_aggreagted_weights(_hospital_name):
     retrieve_aggregated_weights_tx = FL_contract.retrieve_aggregated_weights(
         {"from": hospitals[_hospital_name].address}
     )
+    gas_fee_collab[_hospital_name]['retrieve_fee'].append(retrieve_aggregated_weights_tx.gas_used)
     retrieve_aggregated_weights_tx.wait(1)
 
     weight_hash = decode_utf8(retrieve_aggregated_weights_tx)
@@ -210,27 +224,31 @@ def retrieving_aggreagted_weights(_hospital_name):
 
 
 async def main():
-    # continuously listens for the CLOSE event from the Blockchain and promptly handles it
+    '''continuously listens for the CLOSE event from the Blockchain and promptly handles it'''
     contract_events.subscribe("CloseState", closeState_alert, delay=0.5)
-    print("Subscribed to CLOSE...")
 
-    # await for the START event
+    '''await for the START event'''
     coroutine_start = contract_events.listen("StartState")
-    print("COROUTINE: waiting START...\n", coroutine_start)
+    print("waiting start event...")
+    print()
     await coroutine_start
     print("I waited START")
-    print_line("_")
-    # continue after reception
+    print_line("*")
+    print('\n' * 2)
+
+    '''start event begin'''
     start_event()
 
-    # await for the LEARNING event
+    '''await for the LEARNING event'''
     coroutine_learning = contract_events.listen("LearningState")
-    print("COROUTINE: waiting LEARNING...\n", coroutine_learning)
+    print("waiting learning...")
+    print()
     await coroutine_learning
     print("I waited LEARNING")
-    print_line("_")
+    print_line("*")
+    print('\n' * 2)
 
-    # Initialiazation weights
+    '''Initialiazation weights'''
     hospital_name = list(hospitals.keys())[0]  # take the first elements to check the model used
     if isinstance(hospitals[hospital_name].model, FedProx):
         print("FedProx model weights initialization...")
@@ -245,27 +263,35 @@ async def main():
         file = 'FedAvg_' + name
 
     dataset = hospitals[hospital_name].dataset_name
-    file_name = dataset + '_' + file
-    print('new file ',file_name)
+    file_name = dataset + '/' + file
 
-
-    # start of the Federated Learning loop that will be ended by the CLOSE event
-    # set only for out of memory: debug
+    '''start of the Federated Learning loop that will be ended by the CLOSE event'''
     round = 0
     fed_dict = {}
     while True:
         print("Start round loop ...")
         fed_dict = round_loop(round, fed_dict, file_name)
-        print("fed_dict: ", fed_dict)
+
         # await for the Manager to send the aggregated weights
         coroutine_AW = contract_events.listen("AggregatedWeightsReady")
-        print("COROUTINE: waiting 'send_aggreagted_weights'...\n", coroutine_AW)
+        print("awaiting aggregated weights...")
+        print()
         await coroutine_AW
-        print("Aggregated weights arrived")
-        print_line("_")
+        print("Aggregated weights arrived!")
+        print_line("*")
+        print('\n' * 2)
+
+
+        with open(f"gas_consumption/{file}_collaborator.json", 'w') as json_file:
+            json.dump(gas_fee_collab, json_file)
+
         # continue after reception
-        aggregatedWeightsReady_event()
+        aggregatedWeightsReady_event(round)
         round += 1
+
+
+
+
 
 
 asyncio.run(main())
