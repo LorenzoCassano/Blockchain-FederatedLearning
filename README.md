@@ -1,7 +1,7 @@
 # Federated Learning: Federated Proximal Implementation and Experiments on different simulations
 Project of Blockchain and cryptocurrencies, in this work it has been expanded the original project to the following link:https://github.com/AnaNSi-research/FederatedLearningBlockchain.
 
-Additional features:
+Additional features implemented:
 <ul>
 <li>Implemented Federated Proximal [1]</li>
 <li>Insert the simulation of out of battery device (devices which do not send weights)</li>
